@@ -1,3 +1,5 @@
+// ignore_for_file: unused_field, unused_local_variable
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -211,7 +213,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),
@@ -353,7 +355,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   },
                                 ),
                               );
-                            }).toList(),
+                            }),
                           ],
                         ),
                       );

@@ -8,7 +8,7 @@ import '../widgets/timetable_subject_dialog.dart'; // Import the new dialog func
 class TimetableScreen extends StatefulWidget {
   final void Function() refreshHomeScreen; // Callback for refreshing home screen
 
-  const TimetableScreen({super.key, required this.refreshHomeScreen}); // Required named parameter
+  const TimetableScreen({super.key, required this.refreshHomeScreen});
 
   @override
   State<TimetableScreen> createState() => _TimetableScreenState();
@@ -36,7 +36,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   @override
   Widget build(BuildContext context) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const soothingTeal = Color(0xFF008080); // Soothing Teal color
+    const soothingTeal = Color(0xFF008080);
 
     return Scaffold(
       appBar: AppBar(
@@ -58,9 +58,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     label: Text(
                       days[i],
                       style: TextStyle(
-                        color: selectedWeekday == wd
-                            ? Colors.white
-                            : Colors.black, // Visible when not selected
+                        color: selectedWeekday == wd ? Colors.white : Colors.black,
                       ),
                     ),
                     selected: selectedWeekday == wd,
@@ -68,8 +66,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
                       setState(() => selectedWeekday = wd);
                       _loadData();
                     },
-                    selectedColor: soothingTeal, // Soothing Teal color when selected
-                    backgroundColor: Colors.grey[300], // More visible default
+                    selectedColor: soothingTeal,
+                    backgroundColor: Colors.grey[300],
                     labelStyle: const TextStyle(
                       fontWeight: FontWeight.w500,
                       fontSize: 16,
@@ -116,6 +114,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
       return const Center(child: Text('No subjects added.'));
     }
 
+    // ✅ Sort by parsed start time
+    subjects.sort((a, b) {
+      final timeA = _parseTime(a.time.split('-').first.trim());
+      final timeB = _parseTime(b.time.split('-').first.trim());
+      return (timeA.hour * 60 + timeA.minute).compareTo(timeB.hour * 60 + timeB.minute);
+    });
+
     return FutureBuilder<List<MasterSubject>>(
       future: _masterSubjectsFuture,
       builder: (ctx, masterSubjectSnapshot) {
@@ -156,12 +161,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
                       color: Theme.of(context).textTheme.bodyMedium?.color,
                     ),
                   ),
-                  trailing: Icon(
-                    Icons.edit,
-                    color: soothingTeal, // Soothing Teal color for edit icon
-                  ),
+                  trailing: Icon(Icons.edit, color: soothingTeal),
                   onTap: () => _showSubjectDialog(existing: s),
-                  onLongPress: () => _showDeleteConfirmation(s), // Long press delete
+                  onLongPress: () => _showDeleteConfirmation(s),
                 ),
               ),
             );
@@ -176,10 +178,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
       context: context,
       existing: existing,
       weekday: selectedWeekday,
-      refreshHomeScreen: widget.refreshHomeScreen, // Pass the required argument
+      refreshHomeScreen: widget.refreshHomeScreen,
     );
     if (didChange) {
-      widget.refreshHomeScreen(); // Refresh the HomeScreen after update
+      widget.refreshHomeScreen();
       _loadData();
     }
   }
@@ -205,21 +207,18 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
     if (confirm == true) {
       await db.deleteSubject(subject.id!);
-      widget.refreshHomeScreen(); // Refresh the HomeScreen after deletion
+      widget.refreshHomeScreen();
       _loadData();
     }
   }
 
   TimeOfDay _parseTime(String input) {
     try {
-      final dt = DateFormat.jm().parseLoose(input);
+      final dt = DateFormat.jm().parseLoose(input.trim());
       return TimeOfDay(hour: dt.hour, minute: dt.minute);
-    } catch (_) {
-      final parts = input.split(':');
-      return TimeOfDay(
-        hour: int.parse(parts[0]),
-        minute: int.parse(parts[1]),
-      );
+    } catch (e) {
+      debugPrint('Failed to parse time: $input');
+      return const TimeOfDay(hour: 0, minute: 0); // Fallback
     }
   }
 

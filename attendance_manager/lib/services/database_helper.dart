@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/subject.dart';
 import '../models/master_subject.dart';
+import 'package:intl/intl.dart';
 
 class DatabaseHelper {
   static const _databaseName = 'attendance.db';
@@ -71,9 +72,22 @@ class DatabaseHelper {
       'subjects',
       where: 'day = ?',
       whereArgs: [weekday],
+      orderBy: 'strftime("%H:%M", time) ASC', // Convert to 24-hour format for sorting
     );
     return result.map((e) => Subject.fromMap(e)).toList();
   }
+
+  String convertTo24HourFormat(String time12h) {
+    try {
+      final format12h = DateFormat("hh:mm a");
+      final date = format12h.parse(time12h);
+      final format24h = DateFormat("HH:mm");
+      return format24h.format(date);
+    } catch (e) {
+      return time12h; // Return the original time if the parsing fails
+    }
+  }
+
 
   Future<int> updateSubject(Subject subject) async {
     final db = await database;

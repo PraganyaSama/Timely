@@ -23,14 +23,23 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
     todayWeekday = DateTime.now().weekday;
-    _subjectsFuture = _loadSubjects();
-
-    // Initialize Notification Service if needed (Optional)
-    // NotificationService().init();
+    _subjectsFuture = _loadSubjects(); // Initialize here to prevent LateInitializationError
   }
 
   Future<List<Subject>> _loadSubjects() async {
-    return db.getSubjectsByDate(todayDate);
+    // Step 1: Ensure today's schedule is generated
+    await db.generateTodayScheduleIfNeeded(todayDate, todayWeekday);
+    // Step 2: Fetch subjects for today
+    final subjects = await db.getSubjectsByDate(todayDate);
+
+    // Step 3: Sort subjects by time
+    subjects.sort((a, b) {
+      final timeA = _parseTime(a.time);
+      final timeB = _parseTime(b.time);
+      return timeA.compareTo(timeB);
+    });
+
+    return subjects;
   }
 
   Future<void> _refreshData() async {
@@ -54,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
+
           if (snapshot.hasError) {
             return Center(
               child: Text(
@@ -63,10 +73,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             );
           }
+
           final subjects = snapshot.data ?? [];
+
           if (subjects.isEmpty) {
             return const Center(child: Text('No classes scheduled for today.'));
           }
+
           return Column(
             children: [
               _buildSummaryCard(subjects),
@@ -80,8 +93,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       subject: subj,
                       onStatusChanged: (subj, newStatus) {
                         return db
-                          .updateSubjectStatus(subj.id!, newStatus)
-                          .then((_) => _refreshData());
+                            .updateSubjectStatus(subj.id!, newStatus)
+                            .then((_) => _refreshData());
                       },
                     );
                   },
@@ -96,7 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final changed = await showSubjectDialog(
             context: context,
             weekday: todayWeekday,
-            isHomeScreen: true, // ✅ Add subject only for today
+            isHomeScreen: true,
           );
           if (changed) _refreshData();
         },
@@ -106,10 +119,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSummaryCard(List<Subject> subjects) {
-    final total     = subjects.length;
-    final scheduled = subjects.where((s) => s.status == 'Scheduled').length;
-    final attended  = subjects.where((s) => s.status == 'Attended').length;
-    final missed    = subjects.where((s) => s.status == 'Missed').length;
+    final total = subjects.length;
+    final scheduled = subjects
+        .where((s) => s.status == 'Pending' || s.status == 'Scheduled')
+        .length;
+    final attended = subjects.where((s) => s.status == 'Attended').length;
+    final missed = subjects.where((s) => s.status == 'Missed').length;
     final cancelled = subjects.where((s) => s.status == 'Cancelled').length;
 
     return Card(
@@ -119,10 +134,10 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _statItem('Total',     total.toString()),
+            _statItem('Total', total.toString()),
             _statItem('Scheduled', scheduled.toString()),
-            _statItem('Attended',  attended.toString()),
-            _statItem('Missed',    missed.toString()),
+            _statItem('Attended', attended.toString()),
+            _statItem('Missed', missed.toString()),
             _statItem('Cancelled', cancelled.toString()),
           ],
         ),
@@ -133,7 +148,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _statItem(String label, String value) {
     return Column(
       children: [
-        Text(value,
+        Text(
+          value,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
@@ -141,4 +157,15 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
+
+TimeOfDay _parseTime(String input) {
+  try {
+    final startTimeStr = input.split('-').first.trim(); // Get start time only
+    final dt = DateFormat.jm().parseLoose(startTimeStr);
+    return TimeOfDay(hour: dt.hour, minute: dt.minute);
+  } catch (e) {
+    debugPrint('Failed to parse time: $input');
+    return const TimeOfDay(hour: 0, minute: 0); // Fallback time
+  }
+}
 }
